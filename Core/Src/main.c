@@ -61,14 +61,9 @@ uint8_t time=0;
 uint8_t stop=0;
 
 uint8_t tim_val = 0;
-float adc_val;
 //int motor_flag=1;
-int pwm_value=10;
-int iot_fun=0;
-int sw_re=0;
-int motor_flag=0;
+
 int time_flag=0;
-int laser_flag=0;
 uint8_t sw1_flag=0;
 uint8_t sw2_flag=0;
 
@@ -189,9 +184,14 @@ void laser_detect(void) {
 
 		HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, 0);
 		Uart_write(2);
+		HAL_Delay(2000);
 		motor_drive_clockwise();
 		time_flag = 0; // Reset timer flag for another time will execute this function
         sw1_flag=1;// Increment sw flag to turn on switch sw2
+		count_sec=0;
+		HAL_TIM_Base_Stop_IT(&htim6);
+
+
 
 	}
 
@@ -251,7 +251,7 @@ int main(void)
 			 * Bottom Switch- Initially switch will be High state, sw flag 0 and then entering to this condition
 			 * To turn on the anticlockwise motor and increment the sw flag to execute sw2 condition
 			 */
-			if (HAL_GPIO_ReadPin(SW1_GPIO_Port, SW1_Pin) == 1 && sw1_flag == 0)
+			if ( sw1_flag == 0)
 
 			{
 				sw1_flag=2;
@@ -288,7 +288,7 @@ int main(void)
 
 				HAL_UART_Transmit(&huart2, "clockwise motor start\r\n",
 						strlen("clockwise motor start\r\n"), 100);
-//				motor_drive_clockwise();
+
 
 			}
 			/*
@@ -301,13 +301,18 @@ int main(void)
 				HAL_UART_Transmit(&huart2, "default position\r\n",
 						strlen("default position\r\n"), 100);
 				motor_drive_stop();
-
 				iot_flag = 0;
 
 			}
+			/*
+			 *  if time flag is set in timer start function to execute laser function
+			 */
 			if (time_flag == 1) {
 				laser_detect();
 			}
+			/*
+			 * Timer flag is reset in timer interrupt to disable the Rf tx pin
+			 */
 			else
 			{
 				HAL_Delay(500);
@@ -593,7 +598,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 			time_flag=0;
 			count_sec=0;
 			HAL_TIM_Base_Stop_IT(&htim6);
-//			HAL_Delay(1000);
 
 
 		}
