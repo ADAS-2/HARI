@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -96,24 +97,27 @@ int data_from_iot(void) {
 	 * First checking IOT data is available if its available, read from UART 1 and store data variable
 	 * and Validating data is 1 return 1 to main function
 	 */
+	uint8_t duration,i;
 	if (IsDataAvailable()) {
 		data = Uart_read();
 
 		if (data == '1') {
-			Uart_flush();
-			HAL_UART_Transmit(&huart2, "SUcces\r\n", strlen("Succes\r\n"), 100);
-			return 1;
-		}
-		/*
-		 * If data is not match 1 return 0
-		 */else {
-			HAL_UART_Transmit(&huart2, "failure\r\n", strlen("failure\r\n"),
-					100);
+					Uart_flush();
+					HAL_UART_Transmit(&huart2, "SUcces\r\n", strlen("Succes\r\n"), 100);
+					return 1;
+				}
+				/*
+				 * If data is not match 1 return 0
+				 */else {
+					HAL_UART_Transmit(&huart2, "failure\r\n", strlen("failure\r\n"),
+							100);
 
-			return 0;
-		}
+					return 0;
+				}
+
 
 	}
+
 
 }
 
@@ -187,7 +191,7 @@ void laser_detect(void) {
  *  It's Keep on detecting laser if it is detected TO turn on the clock wise motor then turn off the motor
  *  and Buzzer On
  */
-	if (HAL_GPIO_ReadPin(LASER_GPIO_Port, LASER_Pin) == 1) {
+	if (HAL_GPIO_ReadPin(LASER_GPIO_Port, LASER_Pin) == 0) {
 		HAL_UART_Transmit(&huart2, "laser enter\r\n", strlen("laser enter\r\n"),
 				100);
 
