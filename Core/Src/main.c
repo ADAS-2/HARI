@@ -42,11 +42,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 char data;
@@ -76,7 +76,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_USART3_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 int data_from_iot(void);
 void motor_drive_clockwise(void);
@@ -126,8 +126,12 @@ void motor_drive_clockwise(void) {
 	 */
 	HAL_UART_Transmit(&huart2, "clock enter\r\n", strlen("clock enter\r\n"),
 			100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
+	TIM2->CCR1 = 20;
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, SET); //Motor ON
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, RESET); //Direction of Pin(CLOCK WISE)
+
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
 
 }
 void motor_drive_anticlockwise(void) {
@@ -139,8 +143,11 @@ void motor_drive_anticlockwise(void) {
 		 */
 	HAL_UART_Transmit(&huart2, "motor enter\r\n", strlen("motor enter\r\n"),
 			100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_SET);
+	TIM2->CCR1 = 30;
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, SET); //Motor ON
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, SET); //Direction of Pin(COUNTER CLOCK WISE)
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_SET);
 
 }
 void motor_drive_stop(void) {
@@ -150,8 +157,10 @@ void motor_drive_stop(void) {
 		 * Motor Input 2- Reset
 		 */
 	HAL_UART_Transmit(&huart2, "motor stop\r\n", strlen("motor stop\r\n"), 100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, RESET); //Motor OFF
+
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
 
 }
 void timer_start(void) {
@@ -183,7 +192,7 @@ void laser_detect(void) {
 				100);
 
 		HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, 0);
-		Uart_write(2);
+		Uart_write(1);
 		HAL_Delay(2000);
 		motor_drive_clockwise();
 		time_flag = 0; // Reset timer flag for another time will execute this function
@@ -230,9 +239,13 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM6_Init();
   MX_USART1_UART_Init();
-  MX_USART3_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   Ringbuf_init ();
+  HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+//
+//  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -242,9 +255,12 @@ int main(void)
 
 
 	if (iot_flag == 0) {       // I set Iot flag if it is 0 then entering to Data from iot
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
+
 			if (data_from_iot())// Data from iot function return 1 then set the iot flag
 				iot_flag = 1;
 		}
+
 		if (iot_flag) { // Iot flag is 1 entering to this function
 
 			/*
@@ -315,8 +331,11 @@ int main(void)
 			 */
 			else
 			{
-				HAL_Delay(500);
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 0);
+				//HAL_UART_Transmit(&huart2, "RF 0\r\n",strlen("RF 0\r\n"), 100);
+
+               HAL_Delay(1000);
+               HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
+
 			}
 
 		}
@@ -372,6 +391,65 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 16-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 100-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
 }
 
 /**
@@ -479,39 +557,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -533,7 +578,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13|GPIO_PIN_14|BUZZER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -567,12 +612,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(LASER_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : BUZZER_Pin */
-  GPIO_InitStruct.Pin = BUZZER_Pin;
+  /*Configure GPIO pins : PB13 PB14 BUZZER_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|BUZZER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SW2_Pin */
   GPIO_InitStruct.Pin = SW2_Pin;
@@ -593,13 +638,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 			motor_drive_clockwise();
             sw1_flag=1;
 			HAL_UART_Transmit(&huart2, "Time over\r\n",strlen("Time over\r\n"), 100);
-			Uart_write(3);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
+			Uart_write(0);
 			time_flag=0;
 			count_sec=0;
 			HAL_TIM_Base_Stop_IT(&htim6);
 
-
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 0);
 		}
 }
 /* USER CODE END 4 */
