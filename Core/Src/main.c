@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,11 +43,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 char data;
@@ -76,7 +77,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_USART3_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 int data_from_iot(void);
 void motor_drive_clockwise(void);
@@ -93,72 +94,92 @@ void motor_drive_stop(void);
 /* USER CODE BEGIN 0 */
 int data_from_iot(void) {
 	/*
-	 * First checking IOT data is available if its available, read from UART 1 and store data variable
-	 * and Validating data is 1 return 1 to main function
-	 */
+		 * checking for IoT data, if available read from UART 1 and storing data in a variable
+		 * and Validating the data, if data = 1, return 1; if data = 0, return 0;
+		 */
+//	Uart_flush();
 	if (IsDataAvailable()) {
 		data = Uart_read();
 
 		if (data == '1') {
-			Uart_flush();
-			HAL_UART_Transmit(&huart2, "SUcces\r\n", strlen("Succes\r\n"), 100);
-			return 1;
-		}
-		/*
-		 * If data is not match 1 return 0
-		 */else {
-			HAL_UART_Transmit(&huart2, "failure\r\n", strlen("failure\r\n"),
-					100);
+					Uart_flush();
+					HAL_GPIO_TogglePin(GPIOA,LED_Pin);
+					HAL_UART_Transmit(&huart2, "SUcces\r\n", strlen("Succes\r\n"), 100);
+					return 1;
+				}
+				/*
+				 * If data is not match 1 return 0
+				 */else {
+					 //Uart_flush();
+					HAL_GPIO_WritePin(GPIOA,LED_Pin, GPIO_PIN_SET);
 
-			return 0;
-		}
+					HAL_UART_Transmit(&huart2, "failure\r\n", strlen("failure\r\n"),
+							100);
+
+					return 0;
+				}
+
 
 	}
+
 
 }
 
 void motor_drive_clockwise(void) {
 
 	/*
-	 * I start motor clockwise to reach Default state condition
-	 * Motor Input 1- SET
-	 * Motor Input 2- Reset
-	 */
+	     * start motor clockwise to reach Default position
+		 * Motor Input 1 - SET
+		 * Motor Input 2 - RESET
+		 */
+
 	HAL_UART_Transmit(&huart2, "clock enter\r\n", strlen("clock enter\r\n"),
 			100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
+	TIM2->CCR1 = 15;
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, SET); //Motor ON
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, RESET); //Direction of Pin(CLOCK WISE)
+
+
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
 
 }
 void motor_drive_anticlockwise(void) {
 
 	/*
-		 * I start motor counter clockwise to reach 90 degree state condition
-		 * Motor Input 1- Reset
-		 * Motor Input 2- Set
+		 * start motor anti - clockwise to reach 90 degree position
+		 * Motor Input 1- RESET
+		 * Motor Input 2- SET
 		 */
+
 	HAL_UART_Transmit(&huart2, "motor enter\r\n", strlen("motor enter\r\n"),
 			100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_SET);
+	TIM2->CCR1 = 15;
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, SET); //Motor ON
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, SET); //Direction of Pin(COUNTER CLOCK WISE)
+
+
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_SET);
 
 }
 void motor_drive_stop(void) {
 	/*
-		 * Once Motor Reach 90 degree turn off motor and Motor reach default state Turn off motor
+		 * turn off the motor
 		 * Motor Input 1- Reset
 		 * Motor Input 2- Reset
 		 */
 	HAL_UART_Transmit(&huart2, "motor stop\r\n", strlen("motor stop\r\n"), 100);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, RESET); //Motor OFF
+
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN1_Pin, GPIO_PIN_RESET);
+//	HAL_GPIO_WritePin(GPIOC, MOTOR2_IN2_Pin, GPIO_PIN_RESET);
 
 }
 void timer_start(void) {
- /*
-  *  Once Motor Reach 90 degree angle position To turn on the Timer 10 Second
-  *  and Turn On the Buzzer
-  */
+	 /*
+		  *  start timer for 10 seconds and buzzer on
+		  */
 	HAL_UART_Transmit(&huart2, "time enter\r\n", strlen("time enter\r\n"), 100);
 
 	Buzzer();
@@ -168,27 +189,35 @@ void timer_start(void) {
 
 }
 void Buzzer(void) {
-	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, 1);
+	/*
+		 *  buzzer to indicate timer as started
+		 */
+	HAL_GPIO_WritePin(GPIOB, BUZZER_Pin, 1);
 	HAL_Delay(1000);
-	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, 0);
+	HAL_GPIO_WritePin(GPIOB, BUZZER_Pin, 0);
 }
 
 void laser_detect(void) {
-/*
- *  It's Keep on detecting laser if it is detected TO turn on the clock wise motor then turn off the motor
- *  and Buzzer On
- */
-	if (HAL_GPIO_ReadPin(LASER_GPIO_Port, LASER_Pin) == 1) {
+	/*
+		 * as timer started meanwhile start detecting the laser gun is short r not,
+		 * if laser gun is short then move motor to default position (clock-wise direction),
+		 * stop the timer.
+		 *
+		 */
+	if (HAL_GPIO_ReadPin(GPIOC, LASER_Pin) == 1) {
 		HAL_UART_Transmit(&huart2, "laser enter\r\n", strlen("laser enter\r\n"),
 				100);
+		HAL_TIM_Base_Stop_IT(&htim6);
+		Buzzer();
+		Uart_write(1);
 
-		HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, 0);
-		Uart_write(2);
 		HAL_Delay(2000);
+
 		motor_drive_clockwise();
 		time_flag = 0; // Reset timer flag for another time will execute this function
         sw1_flag=1;// Increment sw flag to turn on switch sw2
 		count_sec=0;
+
 		HAL_TIM_Base_Stop_IT(&htim6);
 
 
@@ -230,9 +259,13 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM6_Init();
   MX_USART1_UART_Init();
-  MX_USART3_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   Ringbuf_init ();
+  HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -241,16 +274,19 @@ int main(void)
   {
 
 
-	if (iot_flag == 0) {       // I set Iot flag if it is 0 then entering to Data from iot
-			if (data_from_iot())// Data from iot function return 1 then set the iot flag
+	if (iot_flag == 0) {       //  if IoT flag is clear then entering to Data_from_iot
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
+
+			if (data_from_iot())// Data_from_IoT function return 1 then set the I0T flag
 				iot_flag = 1;
 		}
-		if (iot_flag) { // Iot flag is 1 entering to this function
+
+		if (iot_flag) { //if IoT flag is set enter into the  function
 
 			/*
-			 * Bottom Switch- Initially switch will be High state, sw flag 0 and then entering to this condition
-			 * To turn on the anticlockwise motor and increment the sw flag to execute sw2 condition
-			 */
+						 * initially switch-1 flag is zero,
+						 * then motor start running from default position to 90 degree position (anti-clock wise direction).
+						 */
 			if ( sw1_flag == 0)
 
 			{
@@ -258,14 +294,14 @@ int main(void)
 				HAL_UART_Transmit(&huart2, "anticlockwise motor start\r\n",
 						strlen("anticlockwise motor start\r\n"), 100);
 				motor_drive_anticlockwise();
-				Uart_write(0);
+
 
 			}
-           /*
-            *  Now motor is running to reach 90 degree, Once Switch 2 is High and sw flag is 1 to turn off the motor
-            *  And increment the sw flag  timer interrupt function. whether timer is working around 10 sec
-            *  To turn on the clock wise motor
-            */
+
+			   /*
+				* once motor touch switch-2 then motor stop, timer starts for 10 seconds,
+				* and motor also stay in 90 degree position
+				*/
 			if (HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin) == 1 && sw2_flag == 0)
 
 			{
@@ -278,22 +314,20 @@ int main(void)
 
 
 			}
-            /*
-             * The clockwise motor is started from timer completed and laser detect to turn off
-             * 90 degree switch, and checking sw2 reset and sw flag 3 to increment the sw flag
-             * to execute Bottom switch
-             */
+			 /*if laser is not short until after 10 seconds,
+			             * then motor start running from 90 degree position to default position(clockwise direction)
+			             */
 			if (HAL_GPIO_ReadPin(SW2_GPIO_Port, SW2_Pin) == 0 && sw2_flag == 1) {
 				sw2_flag=0;
 
-				HAL_UART_Transmit(&huart2, "clockwise motor start\r\n",
-						strlen("clockwise motor start\r\n"), 100);
+//				HAL_UART_Transmit(&huart2, "clockwise motor start\r\n",
+//						strlen("clockwise motor start\r\n"), 100);
 
 
 			}
 			/*
-			 * Once Bottom switch is high to stop the motor
-			 */
+						 * Once motor touch the switch-1 again(default position) stop the motor
+						 */
 			if (HAL_GPIO_ReadPin(SW1_GPIO_Port, SW1_Pin) == 1 && sw1_flag == 1)
 
 			{
@@ -305,8 +339,9 @@ int main(void)
 
 			}
 			/*
-			 *  if time flag is set in timer start function to execute laser function
-			 */
+						 *  once the timer flag is set call the laser_detect function
+						 *  if timer flag is clear then stop transmitting the RF signal
+						 */
 			if (time_flag == 1) {
 				laser_detect();
 			}
@@ -315,8 +350,11 @@ int main(void)
 			 */
 			else
 			{
-				HAL_Delay(500);
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 0);
+				//HAL_UART_Transmit(&huart2, "RF 0\r\n",strlen("RF 0\r\n"), 100);
+
+               HAL_Delay(1000);
+               HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
+
 			}
 
 		}
@@ -372,6 +410,65 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 16-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 100-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
 }
 
 /**
@@ -479,39 +576,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -527,26 +591,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, MOTOR_EN1_Pin|MOTOR2_IN2_Pin|MOTOR2_IN1_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13|GPIO_PIN_14|BUZZER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : MOTOR_EN1_Pin MOTOR2_IN2_Pin MOTOR2_IN1_Pin */
-  GPIO_InitStruct.Pin = MOTOR_EN1_Pin|MOTOR2_IN2_Pin|MOTOR2_IN1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PA0 LED_Pin */
   GPIO_InitStruct.Pin = GPIO_PIN_0|LED_Pin;
@@ -567,12 +621,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(LASER_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : BUZZER_Pin */
-  GPIO_InitStruct.Pin = BUZZER_Pin;
+  /*Configure GPIO pins : PB13 PB14 BUZZER_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14|BUZZER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SW2_Pin */
   GPIO_InitStruct.Pin = SW2_Pin;
@@ -583,6 +637,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// if timer is elapsed for 10 seconds and laser is not short, then send the RF signal to  paint gun ECU
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
 	count_sec++;
@@ -590,17 +646,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 
 		if(count_sec==10)
 		{
+			Uart_write(0);
 			motor_drive_clockwise();
             sw1_flag=1;
 			HAL_UART_Transmit(&huart2, "Time over\r\n",strlen("Time over\r\n"), 100);
-			Uart_write(3);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, 1);
 			time_flag=0;
 			count_sec=0;
 			HAL_TIM_Base_Stop_IT(&htim6);
 
-
-		}
+       }
 }
 /* USER CODE END 4 */
 
